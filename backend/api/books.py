@@ -1,14 +1,19 @@
 import logging
 import uuid
 
-from fastapi import APIRouter, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile, status
 
 from core.config import get_settings
 from core.logging import preview_text
 from database.session import async_session_factory
 from models import SummaryLevel
 from repositories import BookRepository, ChapterRepository, SummaryRepository
-from schemas.book import BookUploadResponse
+from schemas.book import (
+    BookIndexingStatusResponse,
+    BookListItem,
+    BookListResponse,
+    BookUploadResponse,
+)
 from schemas.summary import (
     BookSummaryResponse,
     ChapterSummariesResponse,
@@ -17,8 +22,10 @@ from schemas.summary import (
 from services.chunker.chapter_detector import detect_chapters
 from services.chunker.section_detector import detect_sections
 from services.chunker.semantic_chunker import create_semantic_chunks
+from services.background_summary import run_summary_indexing
 from services.book_indexing import persist_book_metadata
 from services.embedding import EmbeddingServiceError, generate_chunk_embeddings
+from services.indexing_status import get_book_indexing_status
 from services.parser.extraction_storage import save_extracted_text
 from services.parser.pdf_parser import PDFParsingError, extract_text_from_pdf
 from services.parser.text_cleaner import (
@@ -35,6 +42,28 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 router = APIRouter(prefix="/books", tags=["books"])
+
+
+@router.get("", response_model=BookListResponse)
+async def list_books() -> BookListResponse:
+    async with async_session_factory() as session:
+        books = await BookRepository(session).list_recent()
+
+    logger.info("Book list retrieved: count=%s", len(books))
+    return BookListResponse(
+        success=True,
+        books=[
+            BookListItem(
+                id=str(book.id),
+                title=book.title,
+                author=book.author,
+                filename=book.filename,
+                uploaded_at=book.uploaded_at.isoformat(),
+            )
+            for book in books
+        ],
+        message="Books retrieved successfully.",
+    )
 
 
 @router.get("/{book_id}/summary", response_model=BookSummaryResponse)
@@ -70,6 +99,48 @@ async def get_book_summary(book_id: uuid.UUID) -> BookSummaryResponse:
             summary=summaries[0].summary,
             message="Book summary retrieved successfully.",
         )
+
+
+@router.get("/{book_id}/status", response_model=BookIndexingStatusResponse)
+async def get_book_status(book_id: uuid.UUID) -> BookIndexingStatusResponse:
+    async with async_session_factory() as session:
+        book = await BookRepository(session).get_by_id(book_id)
+        if book is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "success": False,
+                    "message": "Book not found.",
+                },
+            )
+
+        indexing_status = await get_book_indexing_status(session, book)
+
+    logger.info(
+        "Book indexing status retrieved: book_id=%s status=%s chunks=%s/%s "
+        "chapters=%s/%s book_summary_ready=%s",
+        book_id,
+        indexing_status.status,
+        indexing_status.chunk_summary_count,
+        indexing_status.chunk_count,
+        indexing_status.chapter_summary_count,
+        indexing_status.chapter_count,
+        indexing_status.book_summary_ready,
+    )
+    return BookIndexingStatusResponse(
+        success=True,
+        book_id=str(book_id),
+        embedding_ready=indexing_status.embedding_ready,
+        chunk_summary_ready=indexing_status.chunk_summary_ready,
+        chapter_summary_ready=indexing_status.chapter_summary_ready,
+        book_summary_ready=indexing_status.book_summary_ready,
+        chunk_count=indexing_status.chunk_count,
+        chunk_summary_count=indexing_status.chunk_summary_count,
+        chapter_count=indexing_status.chapter_count,
+        chapter_summary_count=indexing_status.chapter_summary_count,
+        status=indexing_status.status,
+        message="Book indexing status retrieved successfully.",
+    )
 
 
 @router.get("/{book_id}/chapters", response_model=ChapterSummariesResponse)
@@ -116,7 +187,10 @@ async def get_chapter_summaries(book_id: uuid.UUID) -> ChapterSummariesResponse:
     response_model=BookUploadResponse,
     status_code=status.HTTP_202_ACCEPTED,
 )
-async def upload_book(file: UploadFile = File(...)) -> BookUploadResponse:
+async def upload_book(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+) -> BookUploadResponse:
     logger.info("Upload received: filename=%s", file.filename)
     try:
         size_bytes = await validate_pdf_upload(file, settings.max_upload_mb)
@@ -263,6 +337,8 @@ async def upload_book(file: UploadFile = File(...)) -> BookUploadResponse:
             book.id,
             len(chunk_embeddings),
         )
+        background_tasks.add_task(run_summary_indexing, book.id)
+        logger.info("Background summary indexing scheduled: book_id=%s", book.id)
     except EmbeddingServiceError as error:
         logger.exception("Failed to generate embeddings: book_id=%s", book.id)
         raise HTTPException(

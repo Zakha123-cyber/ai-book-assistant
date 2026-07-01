@@ -1,6 +1,35 @@
 from pydantic import BaseModel
 
 
+class BookListItem(BaseModel):
+    id: str
+    title: str
+    author: str | None = None
+    filename: str
+    uploaded_at: str
+
+
+class BookListResponse(BaseModel):
+    success: bool
+    books: list[BookListItem]
+    message: str
+
+
+class BookIndexingStatusResponse(BaseModel):
+    success: bool
+    book_id: str
+    embedding_ready: bool
+    chunk_summary_ready: bool
+    chapter_summary_ready: bool
+    book_summary_ready: bool
+    chunk_count: int
+    chunk_summary_count: int
+    chapter_count: int
+    chapter_summary_count: int
+    status: str
+    message: str
+
+
 class BookUploadResponse(BaseModel):
     success: bool
     book_id: str | None = None

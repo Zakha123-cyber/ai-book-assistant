@@ -86,12 +86,14 @@
 - [DONE] T046 Integrasi Qwen 3.5 API.
 - [DONE] T047 Endpoint Chat with Book.
 - [DONE] T048 Menampilkan source reference.
+- [DONE] T048A Background summary indexing.
+- [DONE] T048B Endpoint status indexing buku.
 
 ---
 
 # Phase 8 --- Frontend
 
-- [ ] T049 Halaman daftar buku.
+- [DONE] T049 Halaman daftar buku.
 - [ ] T050 Halaman upload.
 - [ ] T051 Halaman detail buku.
 - [ ] T052 Ringkasan per chapter.
