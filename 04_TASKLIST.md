@@ -60,20 +60,20 @@
 
 # Phase 5 --- Embedding
 
-- [ ] T033 Integrasi embedding model.
-- [ ] T034 Generate embedding setiap chunk.
-- [ ] T035 Simpan embedding ke ChromaDB.
-- [ ] T036 Verifikasi retrieval dasar.
+- [DONE] T033 Integrasi embedding model.
+- [DONE] T034 Generate embedding setiap chunk.
+- [DONE] T035 Simpan embedding ke ChromaDB.
+- [DONE TAPI MASIH TIDAK MAKSIMAL HASILNYA] T036 Verifikasi retrieval dasar.
 
 ---
 
 # Phase 6 --- Hierarchical Summarization
 
-- [ ] T037 Ringkasan setiap chunk.
-- [ ] T038 Ringkasan setiap chapter.
-- [ ] T039 Ringkasan keseluruhan buku.
-- [ ] T040 Simpan seluruh ringkasan ke PostgreSQL.
-- [ ] T041 Endpoint summary.
+- [DONE] T037 Ringkasan setiap chunk.
+- [DONE] T038 Ringkasan setiap chapter.
+- [DONE] T039 Ringkasan keseluruhan buku.
+- [DONE] T040 Simpan seluruh ringkasan ke PostgreSQL.
+- [DONE] T041 Endpoint summary.
 
 ---
 

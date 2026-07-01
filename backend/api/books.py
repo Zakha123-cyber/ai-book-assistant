@@ -1,28 +1,113 @@
 import logging
+import uuid
 
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 
 from core.config import get_settings
 from database.session import async_session_factory
+from models import SummaryLevel
+from repositories import BookRepository, ChapterRepository, SummaryRepository
 from schemas.book import BookUploadResponse
+from schemas.summary import (
+    BookSummaryResponse,
+    ChapterSummariesResponse,
+    ChapterSummaryItem,
+)
 from services.chunker.chapter_detector import detect_chapters
 from services.chunker.section_detector import detect_sections
 from services.chunker.semantic_chunker import create_semantic_chunks
 from services.book_indexing import persist_book_metadata
+from services.embedding import EmbeddingServiceError, generate_chunk_embeddings
 from services.parser.extraction_storage import save_extracted_text
 from services.parser.pdf_parser import PDFParsingError, extract_text_from_pdf
 from services.parser.text_cleaner import (
     normalize_whitespace,
+    remove_boilerplate_lines,
     remove_page_numbers,
     remove_repeated_headers_footers,
 )
 from services.parser.upload_storage import save_uploaded_pdf
+from services.retriever import ChromaChunkStore
 from utils.upload_validation import UploadValidationError, validate_pdf_upload
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
 router = APIRouter(prefix="/books", tags=["books"])
+
+
+@router.get("/{book_id}/summary", response_model=BookSummaryResponse)
+async def get_book_summary(book_id: uuid.UUID) -> BookSummaryResponse:
+    async with async_session_factory() as session:
+        book = await BookRepository(session).get_by_id(book_id)
+        if book is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "success": False,
+                    "message": "Book not found.",
+                },
+            )
+
+        summaries = await SummaryRepository(session).list_by_reference(
+            reference_id=book_id,
+            level=SummaryLevel.BOOK,
+        )
+        if not summaries:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "success": False,
+                    "message": "Book summary not found.",
+                },
+            )
+
+        return BookSummaryResponse(
+            success=True,
+            book_id=str(book.id),
+            level=SummaryLevel.BOOK.value,
+            summary=summaries[0].summary,
+            message="Book summary retrieved successfully.",
+        )
+
+
+@router.get("/{book_id}/chapters", response_model=ChapterSummariesResponse)
+async def get_chapter_summaries(book_id: uuid.UUID) -> ChapterSummariesResponse:
+    async with async_session_factory() as session:
+        book = await BookRepository(session).get_by_id(book_id)
+        if book is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "success": False,
+                    "message": "Book not found.",
+                },
+            )
+
+        chapters = await ChapterRepository(session).list_by_book_id(book_id)
+        summary_repository = SummaryRepository(session)
+        chapter_items: list[ChapterSummaryItem] = []
+
+        for chapter in chapters:
+            summaries = await summary_repository.list_by_reference(
+                reference_id=chapter.id,
+                level=SummaryLevel.CHAPTER,
+            )
+            chapter_items.append(
+                ChapterSummaryItem(
+                    chapter_id=str(chapter.id),
+                    number=chapter.number,
+                    title=chapter.title,
+                    summary=summaries[0].summary if summaries else None,
+                )
+            )
+
+        return ChapterSummariesResponse(
+            success=True,
+            book_id=str(book.id),
+            chapters=chapter_items,
+            message="Chapter summaries retrieved successfully.",
+        )
 
 
 @router.post(
@@ -61,7 +146,8 @@ async def upload_book(file: UploadFile = File(...)) -> BookUploadResponse:
 
     try:
         parsed_pdf = extract_text_from_pdf(stored_path)
-        cleaned_pdf = remove_repeated_headers_footers(parsed_pdf)
+        cleaned_pdf = remove_boilerplate_lines(parsed_pdf)
+        cleaned_pdf = remove_repeated_headers_footers(cleaned_pdf)
         cleaned_pdf = remove_page_numbers(cleaned_pdf)
         cleaned_pdf = normalize_whitespace(cleaned_pdf)
         chapters = detect_chapters(cleaned_pdf)
@@ -128,6 +214,31 @@ async def upload_book(file: UploadFile = File(...)) -> BookUploadResponse:
             },
         ) from error
 
+    for chunk in chunks:
+        chunk.metadata["book_id"] = str(book.id)
+
+    try:
+        chunk_embeddings = await generate_chunk_embeddings(chunks)
+        ChromaChunkStore().upsert_chunk_embeddings(chunk_embeddings)
+    except EmbeddingServiceError as error:
+        logger.exception("Failed to generate embeddings: book_id=%s", book.id)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={
+                "success": False,
+                "message": "Failed to generate chunk embeddings.",
+            },
+        ) from error
+    except Exception as error:
+        logger.exception("Failed to store embeddings in ChromaDB: book_id=%s", book.id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "success": False,
+                "message": "Failed to store chunk embeddings.",
+            },
+        ) from error
+
     logger.info(
         "Book upload accepted: book_id=%s filename=%s size_bytes=%s stored_path=%s "
         "extracted_path=%s page_count=%s chapter_count=%s section_count=%s "
@@ -153,5 +264,5 @@ async def upload_book(file: UploadFile = File(...)) -> BookUploadResponse:
         section_count=len(sections),
         chunk_count=len(chunks),
         extracted_text_length=len(cleaned_pdf.text),
-        message="Upload stored and extracted text saved successfully.",
+        message="Upload indexed successfully.",
     )

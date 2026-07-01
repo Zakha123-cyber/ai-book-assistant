@@ -4,6 +4,7 @@ from collections.abc import Sequence
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from models.chapter import Chapter
 from models.chunk import Chunk
 from repositories.base import BaseRepository
 
@@ -20,3 +21,11 @@ class ChunkRepository(BaseRepository[Chunk]):
         )
         return result.scalars().all()
 
+    async def list_by_book_id(self, book_id: uuid.UUID) -> Sequence[Chunk]:
+        result = await self.session.execute(
+            select(Chunk)
+            .join(Chapter, Chunk.chapter_id == Chapter.id)
+            .where(Chapter.book_id == book_id)
+            .order_by(Chapter.number.asc(), Chunk.chunk_index.asc())
+        )
+        return result.scalars().all()

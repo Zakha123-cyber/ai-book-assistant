@@ -26,6 +26,27 @@ class ChapterDetectorTest(unittest.TestCase):
         self.assertEqual(chapters[1].title, "THE POOL OF TEARS.")
         self.assertEqual(chapters[1].start_page, 3)
 
+    def test_detects_indonesian_bab_headings(self) -> None:
+        parsed_pdf = ParsedPDF(
+            page_count=5,
+            pages=[
+                ParsedPage(1, "BAB 1\nPENDAHULUAN\nIsi bab satu."),
+                ParsedPage(2, "BAB I\nLATAR BELAKANG\nIsi bab romawi."),
+                ParsedPage(3, "Bab 2: Judul Bab\nIsi bab dua."),
+                ParsedPage(4, "Bab III - Judul Bab\nIsi bab tiga."),
+                ParsedPage(5, "BAB PERTAMA\nPEMBUKA\nIsi bab pertama."),
+            ],
+        )
+
+        chapters = detect_chapters(parsed_pdf)
+
+        self.assertEqual(len(chapters), 5)
+        self.assertEqual(chapters[0].title, "PENDAHULUAN")
+        self.assertEqual(chapters[1].title, "LATAR BELAKANG")
+        self.assertEqual(chapters[2].title, "Judul Bab")
+        self.assertEqual(chapters[3].title, "Judul Bab")
+        self.assertEqual(chapters[4].title, "PEMBUKA")
+
     def test_falls_back_to_single_chapter(self) -> None:
         parsed_pdf = ParsedPDF(
             page_count=1,
@@ -145,4 +166,3 @@ class SemanticChunkerTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

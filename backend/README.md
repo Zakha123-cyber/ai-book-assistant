@@ -57,6 +57,44 @@ uv run python -m unittest tests.test_chunking
 uv run python -m tests.test_book_indexing
 ```
 
+## Embedding Service
+
+Embeddings use Alibaba DashScope through the OpenAI-compatible API.
+Chunk embeddings are sent in batches of 10 because `text-embedding-v4` rejects
+larger batches.
+
+Required environment variables:
+
+```text
+DASHSCOPE_API_KEY
+DASHSCOPE_BASE_URL
+DASHSCOPE_EMBEDDING_MODEL=text-embedding-v4
+```
+
+Manual smoke test:
+
+```powershell
+uv run python -m tests.test_embedding_manual
+```
+
+Chunk embedding unit test:
+
+```powershell
+uv run python -m unittest tests.test_chunk_embedding
+```
+
+Chroma store unit test:
+
+```powershell
+uv run python -m unittest tests.test_chroma_store
+```
+
+Manual retrieval smoke test:
+
+```powershell
+uv run python -m tests.test_retrieval_manual <book_id> "What happens when Alice follows the white rabbit?"
+```
+
 ## Upload Endpoint
 
 ```text

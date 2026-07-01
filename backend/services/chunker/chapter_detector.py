@@ -6,6 +6,10 @@ from services.parser.pdf_parser import ParsedPDF, ParsedPage
 CHAPTER_HEADING_PATTERNS = [
     re.compile(r"^chapter\s+([0-9]+|[ivxlcdm]+)\b[:.\-\s]*(.*)$", re.IGNORECASE),
     re.compile(r"^chap\.\s+([0-9]+|[ivxlcdm]+)\b[:.\-\s]*(.*)$", re.IGNORECASE),
+    re.compile(
+        r"^bab\s+([0-9]+|[ivxlcdm]+|[a-z]+)\b[:.\-\s]*(.*)$",
+        re.IGNORECASE,
+    ),
     re.compile(r"^([0-9]+)\.\s+([A-Z][A-Za-z0-9 ,:'\"\-]{2,})$"),
 ]
 MAX_HEADING_LENGTH = 120
@@ -99,7 +103,7 @@ def _parse_chapter_title(line: str, next_line: str | None = None) -> str | None:
         trailing_title = match.group(match.lastindex or 0).strip()
         if trailing_title and not trailing_title.isdigit():
             return trailing_title
-        if index < 2 and next_line:
+        if index < 3 and next_line:
             return next_line.strip()
         return line.strip()
 
