@@ -23,14 +23,14 @@
 
 # Phase 2 --- Database
 
--   [ ] T011 Membuat model `books`.
--   [ ] T012 Membuat model `chapters`.
--   [ ] T013 Membuat model `chunks`.
--   [ ] T014 Membuat model `summaries`.
--   [ ] T015 Membuat model `chat_history`.
--   [ ] T016 Membuat migrasi database.
--   [ ] T017 Menambahkan repository layer.
--   [ ] T018 Menguji CRUD dasar.
+-   [DONE] T011 Membuat model `books`.
+-   [DONE] T012 Membuat model `chapters`.
+-   [DONE] T013 Membuat model `chunks`.
+-   [DONE] T014 Membuat model `summaries`.
+-   [DONE] T015 Membuat model `chat_history`.
+-   [DONE] T016 Membuat migrasi database.
+-   [DONE] T017 Menambahkan repository layer.
+-   [DONE] T018 Menguji CRUD dasar.
 
 ------------------------------------------------------------------------
 

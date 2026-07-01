@@ -28,3 +28,19 @@ uv sync --extra dev
 uv run ruff check .
 uv run ruff format .
 ```
+
+## Database Schema Initialization
+
+Create configured PostgreSQL tables with:
+
+```powershell
+uv run python -m database.init_db
+```
+
+## Basic CRUD Check
+
+Run a rollback-only repository smoke test with:
+
+```powershell
+uv run python -m tests.test_basic_crud
+```
