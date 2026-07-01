@@ -8,16 +8,16 @@
 
 # Phase 1 --- Project Initialization
 
--   [ ] T001 Membuat struktur repository.
--   [ ] T002 Inisialisasi backend FastAPI.
--   [ ] T003 Inisialisasi frontend Next.js.
--   [ ] T004 Konfigurasi environment (.env.example).
--   [ ] T005 Konfigurasi PostgreSQL.
--   [ ] T006 Konfigurasi ChromaDB.
--   [ ] T007 Konfigurasi logging.
--   [ ] T008 Menambahkan Docker Compose (opsional).
--   [ ] T009 Menambahkan konfigurasi linting dan formatting.
--   [ ] T010 Menjalankan health check endpoint.
+-   [DONE] T001 Membuat struktur repository.
+-   [DONE] T002 Inisialisasi backend FastAPI.
+-   [DONE] T003 Inisialisasi frontend Next.js.
+-   [DONE] T004 Konfigurasi environment (.env.example).
+-   [DONE] T005 Konfigurasi PostgreSQL.
+-   [DONE] T006 Konfigurasi ChromaDB.
+-   [DONE] T007 Konfigurasi logging.
+-   [SKIP] T008 Menambahkan Docker Compose (opsional).
+-   [DONE] T009 Menambahkan konfigurasi linting dan formatting.
+-   [DONE] T010 Menjalankan health check endpoint.
 
 ------------------------------------------------------------------------
 
