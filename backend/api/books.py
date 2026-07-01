@@ -6,14 +6,31 @@ from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile,
 from core.config import get_settings
 from core.logging import preview_text
 from database.session import async_session_factory
+<<<<<<< Updated upstream
 from models import SummaryLevel
 from repositories import BookRepository, ChapterRepository, SummaryRepository
 from schemas.book import (
     BookIndexingStatusResponse,
+=======
+from models import Book, SummaryLevel
+from repositories import (
+    BookRepository,
+    ChapterRepository,
+    ChatHistoryRepository,
+    ChunkRepository,
+    SummaryRepository,
+)
+from schemas.book import (
+    BookDetailResponse,
+>>>>>>> Stashed changes
     BookListItem,
     BookListResponse,
     BookUploadResponse,
 )
+<<<<<<< Updated upstream
+=======
+from schemas.chat import ChatHistoryItem, ChatHistoryResponse
+>>>>>>> Stashed changes
 from schemas.summary import (
     BookSummaryResponse,
     ChapterSummariesResponse,
@@ -47,6 +64,7 @@ router = APIRouter(prefix="/books", tags=["books"])
 @router.get("", response_model=BookListResponse)
 async def list_books() -> BookListResponse:
     async with async_session_factory() as session:
+<<<<<<< Updated upstream
         books = await BookRepository(session).list_recent()
 
     logger.info("Book list retrieved: count=%s", len(books))
@@ -62,6 +80,21 @@ async def list_books() -> BookListResponse:
             )
             for book in books
         ],
+=======
+        book_repository = BookRepository(session)
+        chapter_repository = ChapterRepository(session)
+        chunk_repository = ChunkRepository(session)
+        books = await book_repository.list_recent()
+        items = [
+            await _book_to_list_item(book, chapter_repository, chunk_repository)
+            for book in books
+        ]
+
+    logger.info("Book list retrieved: count=%s", len(items))
+    return BookListResponse(
+        success=True,
+        books=items,
+>>>>>>> Stashed changes
         message="Books retrieved successfully.",
     )
 
@@ -180,6 +213,43 @@ async def get_chapter_summaries(book_id: uuid.UUID) -> ChapterSummariesResponse:
             chapters=chapter_items,
             message="Chapter summaries retrieved successfully.",
         )
+
+
+@router.get("/{book_id}/chat-history", response_model=ChatHistoryResponse)
+async def get_book_chat_history(book_id: uuid.UUID) -> ChatHistoryResponse:
+    async with async_session_factory() as session:
+        book = await BookRepository(session).get_by_id(book_id)
+        if book is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "success": False,
+                    "message": "Book not found.",
+                },
+            )
+
+        history = await ChatHistoryRepository(session).list_by_book_id(book_id)
+
+    logger.info(
+        "Book chat history retrieved: book_id=%s count=%s",
+        book_id,
+        len(history),
+    )
+    return ChatHistoryResponse(
+        success=True,
+        book_id=str(book_id),
+        history=[
+            ChatHistoryItem(
+                id=str(item.id),
+                book_id=str(item.book_id),
+                question=item.question,
+                answer=item.answer,
+                created_at=item.created_at,
+            )
+            for item in history
+        ],
+        message="Chat history retrieved successfully.",
+    )
 
 
 @router.post(
@@ -384,4 +454,49 @@ async def upload_book(
         chunk_count=len(chunks),
         extracted_text_length=len(cleaned_pdf.text),
         message="Upload indexed successfully.",
+    )
+
+
+@router.get("/{book_id}", response_model=BookDetailResponse)
+async def get_book_detail(book_id: uuid.UUID) -> BookDetailResponse:
+    async with async_session_factory() as session:
+        book = await BookRepository(session).get_by_id(book_id)
+        if book is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "success": False,
+                    "message": "Book not found.",
+                },
+            )
+
+        item = await _book_to_list_item(
+            book,
+            ChapterRepository(session),
+            ChunkRepository(session),
+        )
+
+    logger.info("Book detail retrieved: book_id=%s title=%s", book_id, item.title)
+    return BookDetailResponse(
+        success=True,
+        book=item,
+        message="Book detail retrieved successfully.",
+    )
+
+
+async def _book_to_list_item(
+    book: Book,
+    chapter_repository: ChapterRepository,
+    chunk_repository: ChunkRepository,
+) -> BookListItem:
+    chapters = await chapter_repository.list_by_book_id(book.id)
+    chunks = await chunk_repository.list_by_book_id(book.id)
+    return BookListItem(
+        id=str(book.id),
+        title=book.title,
+        author=book.author,
+        filename=book.filename,
+        uploaded_at=book.uploaded_at,
+        chapter_count=len(chapters),
+        chunk_count=len(chunks),
     )

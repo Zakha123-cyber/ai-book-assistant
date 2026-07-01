@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     upload_dir: str = "./uploads"
     summary_dir: str = "./summaries"
     max_upload_mb: int = 50
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     log_level: str = "INFO"
 
     model_config = SettingsConfigDict(

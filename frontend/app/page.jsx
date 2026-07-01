@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 import { fetchBooks } from "../services/books";
 
 function formatDate(value) {
@@ -94,4 +95,10 @@ export default async function HomePage() {
       </section>
     </main>
   );
+=======
+import BookAssistantApp from "../components/BookAssistantApp";
+
+export default function HomePage() {
+  return <BookAssistantApp />;
+>>>>>>> Stashed changes
 }
