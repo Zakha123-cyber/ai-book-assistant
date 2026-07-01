@@ -1,8 +1,10 @@
 import logging
+from time import perf_counter
 
 from openai import AsyncOpenAI, OpenAIError
 
 from core.config import get_settings
+from core.logging import preview_text
 from services.prompt.qa_prompts import build_qa_prompt
 
 logger = logging.getLogger(__name__)
@@ -31,6 +33,13 @@ class QwenQAService:
             question=question,
             retrieved_context=retrieved_context,
         )
+        logger.info(
+            "Qwen QA request started: model=%s question=%s context_chars=%s",
+            self.model,
+            preview_text(question),
+            len(retrieved_context),
+        )
+        start_time = perf_counter()
         try:
             response = await self.client.chat.completions.create(
                 model=self.model,
@@ -54,5 +63,10 @@ class QwenQAService:
         if not answer:
             raise QAServiceError("QA response was empty.")
 
-        logger.info("Generated QA answer: model=%s", self.model)
+        logger.info(
+            "Qwen QA response received: model=%s duration_ms=%s answer_preview=%s",
+            self.model,
+            round((perf_counter() - start_time) * 1000, 2),
+            preview_text(answer),
+        )
         return answer.strip()

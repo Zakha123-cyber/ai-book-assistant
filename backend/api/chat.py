@@ -4,6 +4,7 @@ import uuid
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.logging import preview_text
 from database.session import async_session_factory
 from models import ChatHistory, SummaryLevel
 from repositories import (
@@ -37,6 +38,13 @@ async def chat_with_book(request: ChatRequest) -> ChatResponse:
     question_route = route_question(normalized_question)
     summary_context: str | None = None
     summary_sources: list[SourceReference] = []
+    logger.info(
+        "Chat request received: book_id=%s mode=%s top_k=%s question=%s",
+        request.book_id,
+        question_route.mode.value,
+        request.top_k,
+        preview_text(normalized_question),
+    )
 
     async with async_session_factory() as session:
         book = await BookRepository(session).get_by_id(request.book_id)
@@ -64,7 +72,21 @@ async def chat_with_book(request: ChatRequest) -> ChatResponse:
             answer = ANSWER_NOT_FOUND
             sources: list[SourceReference] = []
             message = "Question is outside the scope of this book."
+            logger.info(
+                "Input guard rejected question: book_id=%s question=%s",
+                request.book_id,
+                preview_text(normalized_question),
+            )
         elif summary_context is not None:
+            logger.info(
+                "Summary context selected: book_id=%s mode=%s context_chars=%s "
+                "source_count=%s preview=%s",
+                request.book_id,
+                question_route.mode.value,
+                len(summary_context),
+                len(summary_sources),
+                preview_text(summary_context),
+            )
             answer = await QwenQAService().answer_question(
                 question=normalized_question,
                 retrieved_context=summary_context,
@@ -107,6 +129,13 @@ async def chat_with_book(request: ChatRequest) -> ChatResponse:
             )
         )
         await session.commit()
+    logger.info(
+        "Chat response ready: book_id=%s mode=%s answer_preview=%s source_count=%s",
+        request.book_id,
+        question_route.mode.value,
+        preview_text(answer),
+        len(sources),
+    )
 
     return ChatResponse(
         success=True,

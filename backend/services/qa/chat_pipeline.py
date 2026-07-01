@@ -1,7 +1,9 @@
 from dataclasses import dataclass
+import logging
 import re
 from typing import Protocol
 
+from core.logging import preview_text
 from services.embedding import generate_question_embedding
 from services.qa.context_builder import SourceReference, build_retrieved_context
 from services.qa.qwen_qa import QwenQAService
@@ -33,6 +35,7 @@ STOPWORDS = {
     "yang",
 }
 WORD_PATTERN = re.compile(r"[a-zA-Z0-9]+")
+logger = logging.getLogger(__name__)
 
 
 class EmbeddingService(Protocol):
@@ -73,9 +76,21 @@ async def answer_book_question(
     if max_retrieval_distance <= 0:
         raise ValueError("max_retrieval_distance must be greater than zero.")
 
+    logger.info(
+        "Chat retrieval QA started: book_id=%s top_k=%s question=%s",
+        book_id,
+        top_k,
+        preview_text(question),
+    )
     query_embedding = await generate_question_embedding(
         question,
         embedding_service=embedding_service,
+    )
+    logger.info(
+        "Question embedding generated: book_id=%s dimension=%s sample=%s",
+        book_id,
+        len(query_embedding),
+        query_embedding[:5],
     )
     chunks = search_similar_chunks(
         query_embedding=query_embedding,
@@ -84,16 +99,39 @@ async def answer_book_question(
         store=vector_store,
     )
     if not _has_confident_match(chunks, question, max_retrieval_distance):
+        logger.info(
+            "Retrieval guard rejected context: book_id=%s top_distance=%s "
+            "threshold=%s top_source=%s",
+            book_id,
+            chunks[0].distance if chunks else None,
+            max_retrieval_distance,
+            chunks[0].id if chunks else None,
+        )
         return ChatAnswer(answer=ANSWER_NOT_FOUND, sources=[])
 
     retrieved_context = build_retrieved_context(chunks)
     if not retrieved_context.context:
+        logger.info("Retrieved context empty: book_id=%s", book_id)
         return ChatAnswer(answer=ANSWER_NOT_FOUND, sources=[])
+    logger.info(
+        "Retrieved context built: book_id=%s source_count=%s context_chars=%s "
+        "preview=%s",
+        book_id,
+        len(retrieved_context.sources),
+        len(retrieved_context.context),
+        preview_text(retrieved_context.context),
+    )
 
     service = qa_service or QwenQAService()
     answer = await service.answer_question(
         question=question,
         retrieved_context=retrieved_context.context,
+    )
+    logger.info(
+        "Chat retrieval QA completed: book_id=%s answer_preview=%s source_count=%s",
+        book_id,
+        preview_text(answer),
+        0 if _is_not_found_answer(answer) else len(retrieved_context.sources),
     )
     return ChatAnswer(
         answer=answer,
@@ -113,10 +151,18 @@ def _has_confident_match(
     if top_distance is None:
         return False
 
-    return (
-        top_distance <= max_retrieval_distance
-        or _has_lexical_support(question, chunks[0])
+    lexical_support = _has_lexical_support(question, chunks[0])
+    accepted = top_distance <= max_retrieval_distance or lexical_support
+    logger.info(
+        "Retrieval guard evaluated: top_distance=%s threshold=%s "
+        "lexical_support=%s accepted=%s top_source=%s",
+        top_distance,
+        max_retrieval_distance,
+        lexical_support,
+        accepted,
+        chunks[0].id,
     )
+    return accepted
 
 
 def _has_lexical_support(question: str, chunk: RetrievedChunk) -> bool:

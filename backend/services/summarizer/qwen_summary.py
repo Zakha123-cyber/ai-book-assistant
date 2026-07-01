@@ -1,8 +1,10 @@
 import logging
+from time import perf_counter
 
 from openai import AsyncOpenAI, OpenAIError
 
 from core.config import get_settings
+from core.logging import preview_text
 from services.prompt.summary_prompts import (
     build_book_summary_prompt,
     build_chapter_summary_prompt,
@@ -32,6 +34,13 @@ class QwenChunkSummaryClient:
 
     async def summarize_chunk(self, chunk_text: str) -> str:
         prompt = build_chunk_summary_prompt(chunk_text)
+        logger.info(
+            "Qwen chunk summary request started: model=%s chunk_chars=%s preview=%s",
+            self.model,
+            len(chunk_text),
+            preview_text(chunk_text),
+        )
+        start_time = perf_counter()
         try:
             response = await self.client.chat.completions.create(
                 model=self.model,
@@ -54,7 +63,13 @@ class QwenChunkSummaryClient:
         if not summary:
             raise SummaryGenerationError("Chunk summary response was empty.")
 
-        logger.info("Generated chunk summary: model=%s", self.model)
+        logger.info(
+            "Qwen chunk summary response received: model=%s duration_ms=%s "
+            "summary_preview=%s",
+            self.model,
+            round((perf_counter() - start_time) * 1000, 2),
+            preview_text(summary),
+        )
         return summary.strip()
 
 
@@ -74,6 +89,12 @@ class QwenChapterSummaryClient:
 
     async def summarize_chapter(self, chunk_summaries: list[str]) -> str:
         prompt = build_chapter_summary_prompt(chunk_summaries)
+        logger.info(
+            "Qwen chapter summary request started: model=%s chunk_summary_count=%s",
+            self.model,
+            len(chunk_summaries),
+        )
+        start_time = perf_counter()
         try:
             response = await self.client.chat.completions.create(
                 model=self.model,
@@ -97,7 +118,13 @@ class QwenChapterSummaryClient:
         if not summary:
             raise SummaryGenerationError("Chapter summary response was empty.")
 
-        logger.info("Generated chapter summary: model=%s", self.model)
+        logger.info(
+            "Qwen chapter summary response received: model=%s duration_ms=%s "
+            "summary_preview=%s",
+            self.model,
+            round((perf_counter() - start_time) * 1000, 2),
+            preview_text(summary),
+        )
         return summary.strip()
 
 
@@ -117,6 +144,12 @@ class QwenBookSummaryClient:
 
     async def summarize_book(self, chapter_summaries: list[str]) -> str:
         prompt = build_book_summary_prompt(chapter_summaries)
+        logger.info(
+            "Qwen book summary request started: model=%s chapter_summary_count=%s",
+            self.model,
+            len(chapter_summaries),
+        )
+        start_time = perf_counter()
         try:
             response = await self.client.chat.completions.create(
                 model=self.model,
@@ -140,5 +173,11 @@ class QwenBookSummaryClient:
         if not summary:
             raise SummaryGenerationError("Book summary response was empty.")
 
-        logger.info("Generated book summary: model=%s", self.model)
+        logger.info(
+            "Qwen book summary response received: model=%s duration_ms=%s "
+            "summary_preview=%s",
+            self.model,
+            round((perf_counter() - start_time) * 1000, 2),
+            preview_text(summary),
+        )
         return summary.strip()

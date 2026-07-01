@@ -1,13 +1,17 @@
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
+import logging
 from typing import Protocol
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.logging import preview_text
 from models import Chapter, Summary, SummaryLevel
 from repositories import ChunkRepository, SummaryRepository
 from services.summarizer.qwen_summary import QwenChapterSummaryClient
+
+logger = logging.getLogger(__name__)
 
 
 class ChapterSummaryClient(Protocol):
@@ -60,8 +64,9 @@ async def summarize_and_store_chapters(
     summary_repository = SummaryRepository(session)
     chunk_repository = ChunkRepository(session)
     results: list[ChapterSummaryResult] = []
+    logger.info("Chapter summary persistence started: chapter_count=%s", len(chapters))
 
-    for chapter in chapters:
+    for index, chapter in enumerate(chapters, start=1):
         if use_cache:
             existing_summary = await _get_existing_chapter_summary(
                 summary_repository,
@@ -72,6 +77,16 @@ async def summarize_and_store_chapters(
                     chunk_repository,
                     summary_repository,
                     chapter,
+                )
+                logger.info(
+                    "Chapter summary cache hit: index=%s/%s chapter_id=%s "
+                    "title=%s chunk_summaries=%s preview=%s",
+                    index,
+                    len(chapters),
+                    chapter.id,
+                    chapter.title,
+                    chunk_summary_count,
+                    preview_text(existing_summary.summary),
                 )
                 results.append(
                     ChapterSummaryResult(
@@ -88,6 +103,15 @@ async def summarize_and_store_chapters(
             chunk_repository,
             summary_repository,
             chapter,
+        )
+        logger.info(
+            "Chapter summary generating: index=%s/%s chapter_id=%s title=%s "
+            "chunk_summaries=%s",
+            index,
+            len(chapters),
+            chapter.id,
+            chapter.title,
+            len(chunk_summaries),
         )
         summary_text = await summary_client.summarize_chapter(chunk_summaries)
         await summary_repository.add(
@@ -106,7 +130,16 @@ async def summarize_and_store_chapters(
                 cached=False,
             )
         )
+        logger.info(
+            "Chapter summary stored: index=%s/%s chapter_id=%s title=%s preview=%s",
+            index,
+            len(chapters),
+            chapter.id,
+            chapter.title,
+            preview_text(summary_text),
+        )
 
+    logger.info("Chapter summary persistence completed: result_count=%s", len(results))
     return results
 
 

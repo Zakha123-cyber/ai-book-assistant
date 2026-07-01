@@ -1,12 +1,16 @@
 import uuid
 from dataclasses import dataclass
+import logging
 from typing import Protocol
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.logging import preview_text
 from models import Book, Summary, SummaryLevel
 from repositories import ChapterRepository, SummaryRepository
 from services.summarizer.qwen_summary import QwenBookSummaryClient
+
+logger = logging.getLogger(__name__)
 
 
 class BookSummaryClient(Protocol):
@@ -56,6 +60,7 @@ async def summarize_and_store_book(
     summary_client = client or QwenBookSummaryClient()
     summary_repository = SummaryRepository(session)
     chapter_repository = ChapterRepository(session)
+    logger.info("Book summary persistence started: book_id=%s title=%s", book.id, book.title)
 
     if use_cache:
         existing_summary = await _get_existing_book_summary(
@@ -67,6 +72,14 @@ async def summarize_and_store_book(
                 chapter_repository,
                 summary_repository,
                 book,
+            )
+            logger.info(
+                "Book summary cache hit: book_id=%s title=%s chapter_summaries=%s "
+                "preview=%s",
+                book.id,
+                book.title,
+                chapter_summary_count,
+                preview_text(existing_summary.summary),
             )
             return BookSummaryResult(
                 book_id=book.id,
@@ -81,6 +94,12 @@ async def summarize_and_store_book(
         summary_repository,
         book,
     )
+    logger.info(
+        "Book summary generating: book_id=%s title=%s chapter_summaries=%s",
+        book.id,
+        book.title,
+        len(chapter_summaries),
+    )
     summary_text = await summary_client.summarize_book(chapter_summaries)
     await summary_repository.add(
         Summary(
@@ -88,6 +107,12 @@ async def summarize_and_store_book(
             reference_id=book.id,
             summary=summary_text,
         )
+    )
+    logger.info(
+        "Book summary stored: book_id=%s title=%s preview=%s",
+        book.id,
+        book.title,
+        preview_text(summary_text),
     )
     return BookSummaryResult(
         book_id=book.id,

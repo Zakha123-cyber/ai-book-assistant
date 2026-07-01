@@ -16,3 +16,10 @@ def setup_logging() -> None:
     )
 
     logging.getLogger("uvicorn.access").setLevel(log_level)
+
+
+def preview_text(value: str, limit: int = 240) -> str:
+    normalized = " ".join(value.split())
+    if len(normalized) <= limit:
+        return normalized
+    return f"{normalized[:limit].rstrip()}..."

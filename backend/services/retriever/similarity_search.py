@@ -1,3 +1,4 @@
+import logging
 from typing import Protocol
 
 from services.retriever.chroma_store import (
@@ -5,6 +6,8 @@ from services.retriever.chroma_store import (
     ChromaChunkStore,
     RetrievedChunk,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class SimilaritySearchError(ValueError):
@@ -36,8 +39,18 @@ def search_similar_chunks(
         raise SimilaritySearchError("top_k must be greater than zero.")
 
     vector_store = store or ChromaChunkStore()
-    return vector_store.query_by_embedding(
+    results = vector_store.query_by_embedding(
         query_embedding=query_embedding,
         book_id=normalized_book_id,
         top_k=top_k,
     )
+    logger.info(
+        "Similarity search completed: book_id=%s top_k=%s result_count=%s "
+        "top_distance=%s top_source=%s",
+        normalized_book_id,
+        top_k,
+        len(results),
+        results[0].distance if results else None,
+        results[0].id if results else None,
+    )
+    return results

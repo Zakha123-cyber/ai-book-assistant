@@ -4,6 +4,7 @@ import uuid
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 
 from core.config import get_settings
+from core.logging import preview_text
 from database.session import async_session_factory
 from models import SummaryLevel
 from repositories import BookRepository, ChapterRepository, SummaryRepository
@@ -116,6 +117,7 @@ async def get_chapter_summaries(book_id: uuid.UUID) -> ChapterSummariesResponse:
     status_code=status.HTTP_202_ACCEPTED,
 )
 async def upload_book(file: UploadFile = File(...)) -> BookUploadResponse:
+    logger.info("Upload received: filename=%s", file.filename)
     try:
         size_bytes = await validate_pdf_upload(file, settings.max_upload_mb)
     except UploadValidationError as error:
@@ -134,6 +136,12 @@ async def upload_book(file: UploadFile = File(...)) -> BookUploadResponse:
 
     try:
         stored_path = await save_uploaded_pdf(file)
+        logger.info(
+            "Upload stored: filename=%s size_bytes=%s stored_path=%s",
+            file.filename,
+            size_bytes,
+            stored_path,
+        )
     except OSError as error:
         logger.exception("Failed to store uploaded file: filename=%s", file.filename)
         raise HTTPException(
@@ -146,10 +154,23 @@ async def upload_book(file: UploadFile = File(...)) -> BookUploadResponse:
 
     try:
         parsed_pdf = extract_text_from_pdf(stored_path)
+        logger.info(
+            "PDF extracted: filename=%s page_count=%s text_length=%s preview=%s",
+            file.filename,
+            parsed_pdf.page_count,
+            len(parsed_pdf.text),
+            preview_text(parsed_pdf.text),
+        )
         cleaned_pdf = remove_boilerplate_lines(parsed_pdf)
         cleaned_pdf = remove_repeated_headers_footers(cleaned_pdf)
         cleaned_pdf = remove_page_numbers(cleaned_pdf)
         cleaned_pdf = normalize_whitespace(cleaned_pdf)
+        logger.info(
+            "PDF cleaned: filename=%s text_length=%s preview=%s",
+            file.filename,
+            len(cleaned_pdf.text),
+            preview_text(cleaned_pdf.text),
+        )
         chapters = detect_chapters(cleaned_pdf)
         sections = detect_sections(chapters)
         chunks = create_semantic_chunks(
@@ -159,6 +180,16 @@ async def upload_book(file: UploadFile = File(...)) -> BookUploadResponse:
                 "filename": file.filename or "",
                 "stored_path": str(stored_path),
             },
+        )
+        logger.info(
+            "Book chunked: filename=%s chapters=%s sections=%s chunks=%s "
+            "first_chapter=%s first_chunk_preview=%s",
+            file.filename,
+            len(chapters),
+            len(sections),
+            len(chunks),
+            chapters[0].title if chapters else None,
+            preview_text(chunks[0].text) if chunks else "",
         )
     except PDFParsingError as error:
         logger.warning(
@@ -200,6 +231,13 @@ async def upload_book(file: UploadFile = File(...)) -> BookUploadResponse:
                 chunks=chunks,
             )
             await session.commit()
+        logger.info(
+            "Book metadata persisted: book_id=%s title=%s chapters=%s chunks=%s",
+            book.id,
+            book.title,
+            len(chapters),
+            len(chunks),
+        )
     except Exception as error:
         logger.exception(
             "Failed to persist book metadata: filename=%s stored_path=%s",
@@ -220,6 +258,11 @@ async def upload_book(file: UploadFile = File(...)) -> BookUploadResponse:
     try:
         chunk_embeddings = await generate_chunk_embeddings(chunks)
         ChromaChunkStore().upsert_chunk_embeddings(chunk_embeddings)
+        logger.info(
+            "Book embeddings indexed: book_id=%s embedding_count=%s",
+            book.id,
+            len(chunk_embeddings),
+        )
     except EmbeddingServiceError as error:
         logger.exception("Failed to generate embeddings: book_id=%s", book.id)
         raise HTTPException(
