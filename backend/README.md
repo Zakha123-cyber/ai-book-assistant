@@ -44,3 +44,14 @@ Run a rollback-only repository smoke test with:
 ```powershell
 uv run python -m tests.test_basic_crud
 ```
+
+## Upload Endpoint
+
+```text
+POST /books/upload
+Content-Type: multipart/form-data
+Field: file
+```
+
+The upload flow validates the PDF, stores it under `UPLOAD_DIR`, extracts raw
+text with PyMuPDF, cleans it, and stores a sidecar `.extracted.json` file.

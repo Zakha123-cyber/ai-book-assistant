@@ -2,3 +2,9 @@
 .npm-cache/
 .env
 .env.local
+chroma_db/*
+!chroma_db/.gitkeep
+summaries/*
+!summaries/.gitkeep
+uploads/*
+!uploads/.gitkeep
