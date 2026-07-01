@@ -1,0 +1,17 @@
+[project]
+name = "ai-book-assistant-backend"
+version = "0.1.0"
+description = "FastAPI backend for AI Book Assistant."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.116.0",
+    "uvicorn[standard]>=0.35.0",
+]
+
+[project.optional-dependencies]
+dev = []
+
+[tool.uv]
+package = false
+
