@@ -49,12 +49,12 @@
 
 # Phase 4 --- Chunking
 
-- [ ] T027 Deteksi chapter.
-- [ ] T028 Deteksi section.
-- [ ] T029 Semantic chunking.
-- [ ] T030 Overlap chunk.
-- [ ] T031 Metadata generation.
-- [ ] T032 Unit test chunking.
+- [DONE] T027 Deteksi chapter.
+- [DONE] T028 Deteksi section.
+- [DONE] T029 Semantic chunking.
+- [DONE] T030 Overlap chunk.
+- [DONE] T031 Metadata generation.
+- [DONE] T032 Unit test chunking.
 
 ---
 

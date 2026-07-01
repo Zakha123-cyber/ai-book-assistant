@@ -45,6 +45,18 @@ Run a rollback-only repository smoke test with:
 uv run python -m tests.test_basic_crud
 ```
 
+## Chunking Unit Tests
+
+```powershell
+uv run python -m unittest tests.test_chunking
+```
+
+## Book Metadata Persistence Check
+
+```powershell
+uv run python -m tests.test_book_indexing
+```
+
 ## Upload Endpoint
 
 ```text

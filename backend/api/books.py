@@ -3,7 +3,12 @@ import logging
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 
 from core.config import get_settings
+from database.session import async_session_factory
 from schemas.book import BookUploadResponse
+from services.chunker.chapter_detector import detect_chapters
+from services.chunker.section_detector import detect_sections
+from services.chunker.semantic_chunker import create_semantic_chunks
+from services.book_indexing import persist_book_metadata
 from services.parser.extraction_storage import save_extracted_text
 from services.parser.pdf_parser import PDFParsingError, extract_text_from_pdf
 from services.parser.text_cleaner import (
@@ -59,6 +64,16 @@ async def upload_book(file: UploadFile = File(...)) -> BookUploadResponse:
         cleaned_pdf = remove_repeated_headers_footers(parsed_pdf)
         cleaned_pdf = remove_page_numbers(cleaned_pdf)
         cleaned_pdf = normalize_whitespace(cleaned_pdf)
+        chapters = detect_chapters(cleaned_pdf)
+        sections = detect_sections(chapters)
+        chunks = create_semantic_chunks(
+            sections,
+            base_metadata={
+                "book_id": stored_path.stem,
+                "filename": file.filename or "",
+                "stored_path": str(stored_path),
+            },
+        )
     except PDFParsingError as error:
         logger.warning(
             "Book parsing failed: filename=%s stored_path=%s",
@@ -89,21 +104,54 @@ async def upload_book(file: UploadFile = File(...)) -> BookUploadResponse:
             },
         ) from error
 
+    try:
+        async with async_session_factory() as session:
+            book = await persist_book_metadata(
+                session=session,
+                original_filename=file.filename or "",
+                stored_path=stored_path,
+                chapters=chapters,
+                chunks=chunks,
+            )
+            await session.commit()
+    except Exception as error:
+        logger.exception(
+            "Failed to persist book metadata: filename=%s stored_path=%s",
+            file.filename,
+            stored_path,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "success": False,
+                "message": "Failed to persist book metadata.",
+            },
+        ) from error
+
     logger.info(
-        "Book upload accepted: filename=%s size_bytes=%s stored_path=%s "
-        "extracted_path=%s page_count=%s",
+        "Book upload accepted: book_id=%s filename=%s size_bytes=%s stored_path=%s "
+        "extracted_path=%s page_count=%s chapter_count=%s section_count=%s "
+        "chunk_count=%s",
+        book.id,
         file.filename,
         size_bytes,
         stored_path,
         extracted_path,
         cleaned_pdf.page_count,
+        len(chapters),
+        len(sections),
+        len(chunks),
     )
     return BookUploadResponse(
         success=True,
+        book_id=str(book.id),
         filename=file.filename or "",
         stored_path=str(stored_path),
         extracted_path=str(extracted_path),
         page_count=cleaned_pdf.page_count,
+        chapter_count=len(chapters),
+        section_count=len(sections),
+        chunk_count=len(chunks),
         extracted_text_length=len(cleaned_pdf.text),
         message="Upload stored and extracted text saved successfully.",
     )
