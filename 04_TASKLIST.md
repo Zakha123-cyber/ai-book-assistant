@@ -79,13 +79,13 @@
 
 # Phase 7 --- Retrieval & QA
 
-- [ ] T042 Embedding pertanyaan.
-- [ ] T043 Similarity search (Top-K).
-- [ ] T044 Context builder.
-- [ ] T045 Prompt builder.
-- [ ] T046 Integrasi Qwen 3.5 API.
-- [ ] T047 Endpoint Chat with Book.
-- [ ] T048 Menampilkan source reference.
+- [DONE] T042 Embedding pertanyaan.
+- [DONE] T043 Similarity search (Top-K).
+- [DONE] T044 Context builder.
+- [DONE] T045 Prompt builder.
+- [DONE] T046 Integrasi Qwen 3.5 API.
+- [DONE] T047 Endpoint Chat with Book.
+- [DONE] T048 Menampilkan source reference.
 
 ---
 

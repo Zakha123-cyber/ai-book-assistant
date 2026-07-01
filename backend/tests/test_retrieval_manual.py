@@ -1,8 +1,8 @@
 import asyncio
 import sys
 
-from services.embedding import DashScopeEmbeddingService
-from services.retriever import ChromaChunkStore
+from services.embedding import generate_question_embedding
+from services.retriever import search_similar_chunks
 
 DEFAULT_QUERY = "What happens when Alice follows the white rabbit?"
 
@@ -17,9 +17,8 @@ async def main() -> None:
     book_id = sys.argv[1]
     query = " ".join(sys.argv[2:]) if len(sys.argv) > 2 else DEFAULT_QUERY
 
-    embedding_service = DashScopeEmbeddingService()
-    query_embedding = (await embedding_service.embed_texts([query]))[0]
-    results = ChromaChunkStore().query_by_embedding(
+    query_embedding = await generate_question_embedding(query)
+    results = search_similar_chunks(
         query_embedding=query_embedding,
         book_id=book_id,
         top_k=5,
