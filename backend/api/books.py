@@ -6,12 +6,6 @@ from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile,
 from core.config import get_settings
 from core.logging import preview_text
 from database.session import async_session_factory
-<<<<<<< Updated upstream
-from models import SummaryLevel
-from repositories import BookRepository, ChapterRepository, SummaryRepository
-from schemas.book import (
-    BookIndexingStatusResponse,
-=======
 from models import Book, SummaryLevel
 from repositories import (
     BookRepository,
@@ -22,25 +16,22 @@ from repositories import (
 )
 from schemas.book import (
     BookDetailResponse,
->>>>>>> Stashed changes
+    BookIndexingStatusResponse,
     BookListItem,
     BookListResponse,
     BookUploadResponse,
 )
-<<<<<<< Updated upstream
-=======
 from schemas.chat import ChatHistoryItem, ChatHistoryResponse
->>>>>>> Stashed changes
 from schemas.summary import (
     BookSummaryResponse,
     ChapterSummariesResponse,
     ChapterSummaryItem,
 )
+from services.background_summary import run_summary_indexing
+from services.book_indexing import persist_book_metadata
 from services.chunker.chapter_detector import detect_chapters
 from services.chunker.section_detector import detect_sections
 from services.chunker.semantic_chunker import create_semantic_chunks
-from services.background_summary import run_summary_indexing
-from services.book_indexing import persist_book_metadata
 from services.embedding import EmbeddingServiceError, generate_chunk_embeddings
 from services.indexing_status import get_book_indexing_status
 from services.parser.extraction_storage import save_extracted_text
@@ -64,23 +55,6 @@ router = APIRouter(prefix="/books", tags=["books"])
 @router.get("", response_model=BookListResponse)
 async def list_books() -> BookListResponse:
     async with async_session_factory() as session:
-<<<<<<< Updated upstream
-        books = await BookRepository(session).list_recent()
-
-    logger.info("Book list retrieved: count=%s", len(books))
-    return BookListResponse(
-        success=True,
-        books=[
-            BookListItem(
-                id=str(book.id),
-                title=book.title,
-                author=book.author,
-                filename=book.filename,
-                uploaded_at=book.uploaded_at.isoformat(),
-            )
-            for book in books
-        ],
-=======
         book_repository = BookRepository(session)
         chapter_repository = ChapterRepository(session)
         chunk_repository = ChunkRepository(session)
@@ -94,7 +68,6 @@ async def list_books() -> BookListResponse:
     return BookListResponse(
         success=True,
         books=items,
->>>>>>> Stashed changes
         message="Books retrieved successfully.",
     )
 

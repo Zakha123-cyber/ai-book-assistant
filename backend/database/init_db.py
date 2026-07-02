@@ -3,7 +3,7 @@ import logging
 
 from database.base import Base
 from database.session import engine
-from models import Book, Chapter, ChatHistory, Chunk, Summary
+from models import Book, Chapter, ChatHistory, Chunk, Summary, SystemProfile
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +19,7 @@ async def init_database() -> None:
         Chunk.__tablename__,
         Summary.__tablename__,
         ChatHistory.__tablename__,
+        SystemProfile.__tablename__,
     ]
     logger.info("Database schema initialized for tables: %s", ", ".join(model_names))
 

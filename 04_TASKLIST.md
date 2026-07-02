@@ -93,7 +93,7 @@
 
 # Phase 8 --- Frontend
 
-- [DONE] T049 Halaman daftar buku.
+- [ ] T049 Halaman daftar buku.
 - [ ] T050 Halaman upload.
 - [ ] T051 Halaman detail buku.
 - [ ] T052 Ringkasan per chapter.

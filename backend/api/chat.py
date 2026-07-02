@@ -12,6 +12,7 @@ from repositories import (
     ChapterRepository,
     ChatHistoryRepository,
     SummaryRepository,
+    SystemProfileRepository,
 )
 from schemas.chat import ChatRequest, ChatResponse, ChatSource
 from services.embedding import EmbeddingServiceError, QuestionEmbeddingError
@@ -24,6 +25,11 @@ from services.qa import (
     format_page_range,
     format_source_label,
 )
+from services.qa.app_identity import (
+    AppIdentityRoute,
+    build_app_identity_context,
+    detect_app_identity_question,
+)
 from services.qa.question_router import QuestionMode, QuestionRoute, route_question
 from services.retriever import SimilaritySearchError
 
@@ -35,11 +41,14 @@ router = APIRouter(tags=["chat"])
 @router.post("/chat", response_model=ChatResponse)
 async def chat_with_book(request: ChatRequest) -> ChatResponse:
     normalized_question = request.question.strip()
+    identity_route = detect_app_identity_question(normalized_question)
     question_route = route_question(normalized_question)
+    identity_context: str | None = None
     summary_context: str | None = None
     summary_sources: list[SourceReference] = []
+    response_mode = question_route.mode.value
     logger.info(
-        "Chat request received: book_id=%s mode=%s top_k=%s question=%s",
+        "Chat request received: book_id=%s initial_mode=%s top_k=%s question=%s",
         request.book_id,
         question_route.mode.value,
         request.top_k,
@@ -57,6 +66,21 @@ async def chat_with_book(request: ChatRequest) -> ChatResponse:
                 },
             )
 
+        if identity_route is not None:
+            identity_context = await _get_identity_context(session, identity_route)
+        else:
+            system_profile = await SystemProfileRepository(session).get_default()
+            if system_profile is not None:
+                identity_route = detect_app_identity_question(
+                    normalized_question,
+                    profile=system_profile,
+                )
+                if identity_route is not None:
+                    identity_context = build_app_identity_context(
+                        system_profile,
+                        identity_route,
+                    )
+
         if question_route.mode in {
             QuestionMode.BOOK_SUMMARY,
             QuestionMode.CHAPTER_SUMMARY,
@@ -68,9 +92,22 @@ async def chat_with_book(request: ChatRequest) -> ChatResponse:
             )
 
     try:
-        if question_route.mode == QuestionMode.OUT_OF_SCOPE:
-            answer = ANSWER_NOT_FOUND
+        if identity_context is not None:
+            response_mode = "app_identity"
+            answer = await QwenQAService().answer_question(
+                question=normalized_question,
+                retrieved_context=identity_context,
+            )
             sources: list[SourceReference] = []
+            message = "Application identity answer generated successfully."
+            logger.info(
+                "App identity question answered: book_id=%s question=%s",
+                request.book_id,
+                preview_text(normalized_question),
+            )
+        elif question_route.mode == QuestionMode.OUT_OF_SCOPE:
+            answer = ANSWER_NOT_FOUND
+            sources = []
             message = "Question is outside the scope of this book."
             logger.info(
                 "Input guard rejected question: book_id=%s question=%s",
@@ -132,7 +169,7 @@ async def chat_with_book(request: ChatRequest) -> ChatResponse:
     logger.info(
         "Chat response ready: book_id=%s mode=%s answer_preview=%s source_count=%s",
         request.book_id,
-        question_route.mode.value,
+        response_mode,
         preview_text(answer),
         len(sources),
     )
@@ -162,6 +199,23 @@ def _sources_to_response(sources: list[SourceReference]) -> list[ChatSource]:
         )
         for index, source in enumerate(sources, start=1)
     ]
+
+
+async def _get_identity_context(
+    session: AsyncSession,
+    route: AppIdentityRoute,
+) -> str:
+    profile = await SystemProfileRepository(session).get_default()
+    if profile is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "success": False,
+                "message": "System profile not configured.",
+            },
+        )
+
+    return build_app_identity_context(profile, route)
 
 
 async def _get_summary_context(

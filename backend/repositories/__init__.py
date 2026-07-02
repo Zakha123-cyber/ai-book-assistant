@@ -4,6 +4,7 @@ from repositories.chapter import ChapterRepository
 from repositories.chat_history import ChatHistoryRepository
 from repositories.chunk import ChunkRepository
 from repositories.summary import SummaryRepository
+from repositories.system_profile import SystemProfileRepository
 
 __all__ = [
     "BaseRepository",
@@ -12,5 +13,5 @@ __all__ = [
     "ChatHistoryRepository",
     "ChunkRepository",
     "SummaryRepository",
+    "SystemProfileRepository",
 ]
-

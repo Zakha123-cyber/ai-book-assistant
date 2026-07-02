@@ -14,6 +14,13 @@ class Settings(BaseSettings):
     summary_dir: str = "./summaries"
     max_upload_mb: int = 50
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    app_assistant_name: str = "AI Book Assistant"
+    app_assistant_description: str = (
+        "AI assistant for summarizing books and answering questions using "
+        "uploaded book content."
+    )
+    app_creator_name: str = ""
+    app_creator_description: str = ""
     log_level: str = "INFO"
 
     model_config = SettingsConfigDict(
