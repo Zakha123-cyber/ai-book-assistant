@@ -19,16 +19,16 @@ export default function BookList({
   onRefresh,
 }) {
   return (
-    <section className="flex min-h-0 flex-col rounded-lg border border-neutral-800 bg-neutral-950">
-      <div className="flex items-center justify-between border-b border-neutral-800 px-4 py-3">
+    <section className="flex min-h-0 flex-col rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
         <div>
-          <p className="text-xs font-semibold tracking-wide text-cyan-300 uppercase">
+          <p className="text-xs font-semibold tracking-wide text-[#7C9885] uppercase">
             Library
           </p>
-          <h2 className="text-lg font-semibold text-neutral-50">Books</h2>
+          <h2 className="text-lg font-semibold text-slate-900">Books</h2>
         </div>
         <button
-          className="rounded-md border border-neutral-700 px-3 py-1.5 text-sm text-neutral-200 hover:border-cyan-500 hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 transition hover:border-[#7C9885] hover:text-[#4F6F52] disabled:cursor-not-allowed disabled:opacity-60"
           type="button"
           onClick={onRefresh}
           disabled={loading}
@@ -51,23 +51,37 @@ export default function BookList({
           return (
             <button
               key={book.id}
-              className={`rounded-md border p-3 text-left transition ${
+              className={`rounded-2xl border p-4 text-left shadow-sm transition ${
                 selected
-                  ? "border-cyan-500 bg-cyan-950/40"
-                  : "border-neutral-800 bg-neutral-900 hover:border-neutral-600"
+                  ? "border-[#7C9885] bg-[#DDE7DD]"
+                  : "border-slate-200 bg-white hover:border-[#7C9885]"
               }`}
               type="button"
               onClick={() => onSelectBook(book.id)}
             >
-              <p className="line-clamp-2 text-sm font-semibold text-neutral-50">
-                {book.title}
+              <div className="flex gap-3">
+                <div className="flex h-14 w-11 shrink-0 items-center justify-center rounded-lg bg-[#1E293B] text-xs font-semibold text-white">
+                  PDF
+                </div>
+                <div className="min-w-0">
+                  <p className="line-clamp-2 text-sm font-semibold text-slate-900">
+                    {book.title}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {book.author || "Unknown author"}
+                  </p>
+                </div>
+              </div>
+              <p className="mt-3 text-xs text-slate-500">
+                Indexed {formatDate(book.uploaded_at)}
               </p>
-              <p className="mt-1 text-xs text-neutral-400">
-                {formatDate(book.uploaded_at)}
-              </p>
-              <div className="mt-3 flex gap-2 text-xs text-neutral-300">
-                <span>{book.chapter_count} chapters</span>
-                <span>{book.chunk_count} chunks</span>
+              <div className="mt-3 flex flex-wrap gap-2 text-xs font-medium text-slate-600">
+                <span className="rounded-full bg-[#F3EDE2] px-2.5 py-1">
+                  {book.chapter_count} chapters
+                </span>
+                <span className="rounded-full bg-[#F3EDE2] px-2.5 py-1">
+                  {book.chunk_count} chunks
+                </span>
               </div>
             </button>
           );

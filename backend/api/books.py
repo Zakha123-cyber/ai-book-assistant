@@ -1,7 +1,7 @@
 import logging
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, File, HTTPException, UploadFile, status
 
 from core.config import get_settings
 from core.logging import preview_text
@@ -27,7 +27,7 @@ from schemas.summary import (
     ChapterSummariesResponse,
     ChapterSummaryItem,
 )
-from services.background_summary import run_summary_indexing
+from services.background_summary import schedule_summary_indexing
 from services.book_indexing import persist_book_metadata
 from services.chunker.chapter_detector import detect_chapters
 from services.chunker.section_detector import detect_sections
@@ -231,7 +231,6 @@ async def get_book_chat_history(book_id: uuid.UUID) -> ChatHistoryResponse:
     status_code=status.HTTP_202_ACCEPTED,
 )
 async def upload_book(
-    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
 ) -> BookUploadResponse:
     logger.info("Upload received: filename=%s", file.filename)
@@ -380,8 +379,7 @@ async def upload_book(
             book.id,
             len(chunk_embeddings),
         )
-        background_tasks.add_task(run_summary_indexing, book.id)
-        logger.info("Background summary indexing scheduled: book_id=%s", book.id)
+        schedule_summary_indexing(book.id)
     except EmbeddingServiceError as error:
         logger.exception("Failed to generate embeddings: book_id=%s", book.id)
         raise HTTPException(
@@ -427,6 +425,50 @@ async def upload_book(
         chunk_count=len(chunks),
         extracted_text_length=len(cleaned_pdf.text),
         message="Upload indexed successfully.",
+    )
+
+
+@router.post("/{book_id}/summaries/retry", response_model=BookIndexingStatusResponse)
+async def retry_book_summary_indexing(
+    book_id: uuid.UUID,
+) -> BookIndexingStatusResponse:
+    async with async_session_factory() as session:
+        book = await BookRepository(session).get_by_id(book_id)
+        if book is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "success": False,
+                    "message": "Book not found.",
+                },
+            )
+
+        scheduled = schedule_summary_indexing(book.id)
+        indexing_status = await get_book_indexing_status(session, book)
+
+    logger.info(
+        "Book summary indexing retry requested: book_id=%s scheduled=%s status=%s",
+        book_id,
+        scheduled,
+        indexing_status.status,
+    )
+    return BookIndexingStatusResponse(
+        success=True,
+        book_id=str(book_id),
+        embedding_ready=indexing_status.embedding_ready,
+        chunk_summary_ready=indexing_status.chunk_summary_ready,
+        chapter_summary_ready=indexing_status.chapter_summary_ready,
+        book_summary_ready=indexing_status.book_summary_ready,
+        chunk_count=indexing_status.chunk_count,
+        chunk_summary_count=indexing_status.chunk_summary_count,
+        chapter_count=indexing_status.chapter_count,
+        chapter_summary_count=indexing_status.chapter_summary_count,
+        status=indexing_status.status,
+        message=(
+            "Book summary indexing scheduled."
+            if scheduled
+            else "Book summary indexing is already running."
+        ),
     )
 
 

@@ -4,15 +4,15 @@ export default function StatusMessage({ tone = "neutral", children }) {
   }
 
   const toneClasses = {
-    neutral: "border-neutral-800 bg-neutral-900 text-neutral-300",
-    error: "border-red-900/70 bg-red-950/70 text-red-200",
-    success: "border-emerald-900/70 bg-emerald-950/70 text-emerald-200",
-    warning: "border-amber-900/70 bg-amber-950/70 text-amber-200",
+    neutral: "border-slate-200 bg-white text-slate-600",
+    error: "border-red-200 bg-red-50 text-red-700",
+    success: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    warning: "border-amber-200 bg-amber-50 text-amber-800",
   };
 
   return (
     <div
-      className={`rounded-md border px-3 py-2 text-sm ${toneClasses[tone]}`}
+      className={`rounded-xl border px-3 py-2 text-sm ${toneClasses[tone]}`}
       role={tone === "error" ? "alert" : "status"}
     >
       {children}

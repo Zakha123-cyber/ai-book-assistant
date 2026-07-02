@@ -1,8 +1,11 @@
 "use client";
 
+import Link from "next/link";
+
 import BookDetail from "./BookDetail";
 import BookList from "./BookList";
 import ChatPanel from "./ChatPanel";
+import IndexingStatusCard from "./IndexingStatusCard";
 import SummaryPanels from "./SummaryPanels";
 import UploadPanel from "./UploadPanel";
 import { useBookDashboard } from "../hooks/useBookDashboard";
@@ -11,41 +14,34 @@ export default function BookAssistantApp() {
   const dashboard = useBookDashboard();
 
   return (
-    <main className="min-h-screen bg-neutral-950 px-4 py-6 text-neutral-50 sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-[#FAF7F0] px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
       <div className="mx-auto flex max-w-7xl flex-col gap-6">
-        <header className="flex flex-col gap-3 border-b border-neutral-800 pb-5">
-          <p className="text-sm font-semibold tracking-wide text-cyan-300 uppercase">
-            AI Book Assistant
-          </p>
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <header className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <h1 className="text-3xl font-semibold tracking-tight text-neutral-50">
+              <div className="flex flex-wrap items-center gap-3">
+                <Link
+                  className="text-sm font-semibold text-[#4F6F52] hover:text-[#1E293B]"
+                  href="/"
+                >
+                  AI Book Assistant
+                </Link>
+                <span className="rounded-full bg-[#DDE7DD] px-3 py-1 text-xs font-semibold text-[#4F6F52]">
+                  Reading Workspace
+                </span>
+              </div>
+              <h1 className="mt-3 max-w-3xl text-3xl font-semibold tracking-normal text-slate-900">
                 Read, summarize, and question indexed books.
               </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-300">
-                Upload PDFs, inspect summaries, ask retrieval-backed questions,
-                and review chat history from one workspace.
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+                Upload PDFs, inspect generated summaries, ask grounded
+                questions, and review chat history from one focused workspace.
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
-              <div className="rounded-md border border-neutral-800 bg-neutral-900 px-4 py-3">
-                <p className="text-neutral-500">Books</p>
-                <p className="mt-1 text-xl font-semibold">
-                  {dashboard.books.length}
-                </p>
-              </div>
-              <div className="rounded-md border border-neutral-800 bg-neutral-900 px-4 py-3">
-                <p className="text-neutral-500">Selected</p>
-                <p className="mt-1 text-xl font-semibold">
-                  {dashboard.bookDetail ? "1" : "0"}
-                </p>
-              </div>
-              <div className="rounded-md border border-neutral-800 bg-neutral-900 px-4 py-3">
-                <p className="text-neutral-500">Messages</p>
-                <p className="mt-1 text-xl font-semibold">
-                  {dashboard.chatHistory.length}
-                </p>
-              </div>
+            <div className="grid grid-cols-3 gap-3 text-sm">
+              <Metric label="Books" value={dashboard.books.length} />
+              <Metric label="Selected" value={dashboard.bookDetail ? 1 : 0} />
+              <Metric label="Messages" value={dashboard.chatHistory.length} />
             </div>
           </div>
         </header>
@@ -72,10 +68,18 @@ export default function BookAssistantApp() {
               book={dashboard.bookDetail}
               loading={dashboard.loadingDetail}
               error={dashboard.detailError}
+              indexingStatus={dashboard.indexingStatus}
+            />
+            <IndexingStatusCard
+              status={dashboard.indexingStatus}
+              loading={dashboard.loadingStatus}
+              error={dashboard.statusError}
+              onRetry={dashboard.handleRetryIndexing}
             />
             <SummaryPanels
               bookSummary={dashboard.bookSummary}
               chapters={dashboard.chapters}
+              indexingStatus={dashboard.indexingStatus}
             />
             <ChatPanel
               selectedBookId={dashboard.selectedBookId}
@@ -88,5 +92,14 @@ export default function BookAssistantApp() {
         </div>
       </div>
     </main>
+  );
+}
+
+function Metric({ label, value }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-[#F3EDE2] px-4 py-3">
+      <p className="text-xs font-medium text-slate-500">{label}</p>
+      <p className="mt-1 text-xl font-semibold text-slate-900">{value}</p>
+    </div>
   );
 }

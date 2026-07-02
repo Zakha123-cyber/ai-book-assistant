@@ -31,31 +31,44 @@ export default function UploadPanel({ uploading, uploadError, onUpload }) {
     if (result?.success) {
       setSelectedFile(null);
       event.currentTarget.reset();
-      setSuccessMessage("Upload indexed successfully.");
+      setSuccessMessage(
+        "Upload accepted. Indexing and summaries will continue.",
+      );
     }
   }
 
   return (
-    <section className="rounded-lg border border-neutral-800 bg-neutral-950 p-4">
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="mb-4">
-        <p className="text-xs font-semibold tracking-wide text-cyan-300 uppercase">
+        <p className="text-xs font-semibold tracking-wide text-[#7C9885] uppercase">
           Upload
         </p>
-        <h2 className="text-lg font-semibold text-neutral-50">
-          Add a PDF book
-        </h2>
+        <h2 className="text-lg font-semibold text-slate-900">Add a PDF book</h2>
+        <p className="mt-1 text-sm leading-5 text-slate-500">
+          Text-based PDF files work best for extraction and retrieval.
+        </p>
       </div>
 
       <form className="flex flex-col gap-3" onSubmit={handleSubmit}>
-        <input
-          className="rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 file:mr-3 file:rounded-md file:border-0 file:bg-cyan-600 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white"
-          type="file"
-          accept="application/pdf,.pdf"
-          disabled={uploading}
-          onChange={(event) => setSelectedFile(event.target.files?.[0] || null)}
-        />
+        <label className="cursor-pointer rounded-2xl border border-dashed border-[#7C9885]/70 bg-[#F3EDE2] p-4 text-center transition hover:border-[#4F6F52]">
+          <input
+            className="sr-only"
+            type="file"
+            accept="application/pdf,.pdf"
+            disabled={uploading}
+            onChange={(event) =>
+              setSelectedFile(event.target.files?.[0] || null)
+            }
+          />
+          <span className="block text-sm font-semibold text-slate-800">
+            {selectedFile ? selectedFile.name : "Choose or drop a PDF"}
+          </span>
+          <span className="mt-1 block text-xs text-slate-500">
+            Maximum size follows backend upload settings.
+          </span>
+        </label>
         <button
-          className="rounded-md bg-cyan-600 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-xl bg-[#4F6F52] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#405b43] disabled:cursor-not-allowed disabled:opacity-60"
           type="submit"
           disabled={uploading}
         >

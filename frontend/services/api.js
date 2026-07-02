@@ -36,6 +36,23 @@ export async function fetchBookDetail(bookId) {
   return readJsonResponse(response);
 }
 
+export async function fetchBookStatus(bookId) {
+  const response = await fetch(`${API_BASE_URL}/books/${bookId}/status`, {
+    cache: "no-store",
+  });
+  return readJsonResponse(response);
+}
+
+export async function retryBookSummaryIndexing(bookId) {
+  const response = await fetch(
+    `${API_BASE_URL}/books/${bookId}/summaries/retry`,
+    {
+      method: "POST",
+    },
+  );
+  return readJsonResponse(response);
+}
+
 export async function fetchBookSummary(bookId) {
   const response = await fetch(`${API_BASE_URL}/books/${bookId}/summary`, {
     cache: "no-store",

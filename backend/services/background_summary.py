@@ -1,4 +1,5 @@
 import logging
+import asyncio
 import uuid
 
 from database.session import async_session_factory
@@ -14,6 +15,19 @@ from services.summarizer import (
 )
 
 logger = logging.getLogger(__name__)
+_scheduled_tasks: dict[uuid.UUID, asyncio.Task[None]] = {}
+
+
+def schedule_summary_indexing(book_id: uuid.UUID) -> bool:
+    if book_id in _scheduled_tasks:
+        logger.info("BACKGROUND INDEXING ALREADY SCHEDULED: book_id=%s", book_id)
+        return False
+
+    task = asyncio.create_task(run_summary_indexing(book_id))
+    _scheduled_tasks[book_id] = task
+    task.add_done_callback(lambda done_task: _on_summary_indexing_done(book_id, done_task))
+    logger.info("BACKGROUND INDEXING TASK CREATED: book_id=%s", book_id)
+    return True
 
 
 async def run_summary_indexing(book_id: uuid.UUID) -> None:
@@ -93,6 +107,14 @@ async def run_summary_indexing(book_id: uuid.UUID) -> None:
         )
     else:
         logger.info("BACKGROUND INDEXING FINISHED: book_id=%s", book_id)
+
+
+def _on_summary_indexing_done(book_id: uuid.UUID, task: asyncio.Task[None]) -> None:
+    _scheduled_tasks.pop(book_id, None)
+    try:
+        task.result()
+    except Exception:
+        logger.exception("BACKGROUND INDEXING TASK CRASHED: book_id=%s", book_id)
 
 
 async def _log_status(session, book, checkpoint: str) -> None:
