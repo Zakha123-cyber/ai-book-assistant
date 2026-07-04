@@ -91,6 +91,24 @@
 
 ---
 
+# Phase 7B --- LangGraph Chat Workflow
+
+- [DONE] T048C Menambahkan dependency `langgraph`.
+- [DONE] T048D Mendesain state object untuk chat graph.
+- [DONE] T048E Membuat node `validate_book`.
+- [DONE] T048F Membuat node `detect_identity`.
+- [DONE] T048G Membuat node `route_question`.
+- [DONE] T048H Membuat node `resolve_summary_context`.
+- [DONE] T048I Membuat node `run_retrieval_qa`.
+- [DONE] T048J Membuat node `generate_identity_or_summary_answer`.
+- [DONE] T048K Membuat node `persist_chat_history`.
+- [DONE] T048L Menghubungkan graph ke endpoint `/chat` tanpa mengubah response API.
+- [DONE] T048M Menambahkan logging per node graph.
+- [DONE] T048N Menambahkan unit test untuk LangGraph chat workflow.
+- [DONE] T048O Validasi manual endpoint `/chat` dengan skenario identity, summary, retrieval QA, dan out-of-scope.
+
+---
+
 # Phase 8 --- Frontend
 
 - [ ] T049 Halaman daftar buku.
