@@ -1,11 +1,13 @@
 import logging
 import uuid
 from collections.abc import Awaitable, Callable
+from functools import lru_cache
 from time import perf_counter
 
 from langgraph.graph import END, StateGraph
 
 from database.session import async_session_factory
+from services.qa.question_router import QuestionMode
 from services.qa.chat_graph_nodes import (
     detect_identity_node,
     generate_identity_or_summary_answer_node,
@@ -48,6 +50,7 @@ async def run_chat_graph(
     return final_state
 
 
+@lru_cache(maxsize=1)
 def _build_chat_graph():
     workflow = StateGraph(ChatGraphState)
     workflow.add_node("validate_book", _validate_book)
@@ -63,13 +66,48 @@ def _build_chat_graph():
 
     workflow.set_entry_point("validate_book")
     workflow.add_edge("validate_book", "detect_identity")
-    workflow.add_edge("detect_identity", "route_question")
-    workflow.add_edge("route_question", "resolve_summary_context")
-    workflow.add_edge("resolve_summary_context", "run_retrieval_qa")
-    workflow.add_edge("run_retrieval_qa", "generate_identity_or_summary_answer")
+    workflow.add_conditional_edges(
+        "detect_identity",
+        _next_after_detect_identity,
+        {
+            "generate": "generate_identity_or_summary_answer",
+            "route": "route_question",
+        },
+    )
+    workflow.add_conditional_edges(
+        "route_question",
+        _next_after_route_question,
+        {
+            "persist": "persist_chat_history",
+            "summary": "resolve_summary_context",
+            "retrieval": "run_retrieval_qa",
+        },
+    )
+    workflow.add_edge("resolve_summary_context", "generate_identity_or_summary_answer")
+    workflow.add_edge("run_retrieval_qa", "persist_chat_history")
     workflow.add_edge("generate_identity_or_summary_answer", "persist_chat_history")
     workflow.add_edge("persist_chat_history", END)
     return workflow.compile()
+
+
+def _next_after_detect_identity(state: ChatGraphState) -> str:
+    if state.get("identity_context"):
+        return "generate"
+    return "route"
+
+
+def _next_after_route_question(state: ChatGraphState) -> str:
+    if state.get("answer"):
+        return "persist"
+
+    question_route = state.get("question_route")
+    if question_route is not None and question_route.mode in {
+        QuestionMode.BOOK_SUMMARY,
+        QuestionMode.CHAPTER_SUMMARY,
+    }:
+        return "summary"
+
+    return "retrieval"
 
 
 async def _validate_book(state: ChatGraphState) -> ChatGraphState:
@@ -142,15 +180,6 @@ async def _run_logged_node(
     node: Callable[[ChatGraphState], Awaitable[ChatGraphState]],
 ) -> ChatGraphState:
     start_time = perf_counter()
-    logger.info(
-        "LangGraph node start: node=%s book_id=%s mode=%s has_answer=%s "
-        "source_count=%s",
-        node_name,
-        state.get("book_id"),
-        state.get("response_mode"),
-        bool(state.get("answer")),
-        len(state.get("sources", [])),
-    )
     try:
         next_state = await node(state)
     except Exception:
@@ -163,7 +192,7 @@ async def _run_logged_node(
         raise
 
     logger.info(
-        "LangGraph node done: node=%s book_id=%s mode=%s has_answer=%s "
+        "LangGraph node completed: node=%s book_id=%s mode=%s has_answer=%s "
         "source_count=%s duration_ms=%s",
         node_name,
         next_state.get("book_id"),

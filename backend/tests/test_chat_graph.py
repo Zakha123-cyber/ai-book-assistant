@@ -2,8 +2,10 @@ import uuid
 import unittest
 from unittest.mock import patch
 
+import services.qa.chat_graph as chat_graph
 from services.qa import ANSWER_NOT_FOUND
 from services.qa.chat_graph import run_chat_graph
+from services.qa.question_router import QuestionMode, QuestionRoute
 
 
 def make_node(name, calls, updates=None):
@@ -18,6 +20,12 @@ def make_node(name, calls, updates=None):
 
 
 class ChatGraphWorkflowTest(unittest.IsolatedAsyncioTestCase):
+    def setUp(self) -> None:
+        chat_graph._build_chat_graph.cache_clear()
+
+    def tearDown(self) -> None:
+        chat_graph._build_chat_graph.cache_clear()
+
     async def test_chat_graph_runs_retrieval_workflow_in_order(self) -> None:
         calls = []
         book_id = uuid.uuid4()
@@ -36,7 +44,12 @@ class ChatGraphWorkflowTest(unittest.IsolatedAsyncioTestCase):
                 make_node(
                     "route_question",
                     calls,
-                    {"response_mode": "retrieval_qa"},
+                    {
+                        "question_route": QuestionRoute(
+                            mode=QuestionMode.RETRIEVAL_QA,
+                        ),
+                        "response_mode": "retrieval_qa",
+                    },
                 ),
             ),
             patch(
@@ -76,9 +89,7 @@ class ChatGraphWorkflowTest(unittest.IsolatedAsyncioTestCase):
                 "validate_book",
                 "detect_identity",
                 "route_question",
-                "resolve_summary_context",
                 "run_retrieval_qa",
-                "generate_identity_or_summary_answer",
                 "persist_chat_history",
             ],
         )
@@ -146,7 +157,15 @@ class ChatGraphWorkflowTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(state["response_mode"], "app_identity")
         self.assertEqual(state["answer"], "Identity answer.")
         self.assertEqual(state["sources"], [])
-        self.assertIn("persist_chat_history", calls)
+        self.assertEqual(
+            calls,
+            [
+                "validate_book",
+                "detect_identity",
+                "generate_identity_or_summary_answer",
+                "persist_chat_history",
+            ],
+        )
 
     async def test_chat_graph_preserves_out_of_scope_answer_state(self) -> None:
         calls = []
@@ -199,6 +218,15 @@ class ChatGraphWorkflowTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(state["answer"], ANSWER_NOT_FOUND)
         self.assertEqual(state["response_mode"], "out_of_scope")
         self.assertEqual(state["sources"], [])
+        self.assertEqual(
+            calls,
+            [
+                "validate_book",
+                "detect_identity",
+                "route_question",
+                "persist_chat_history",
+            ],
+        )
 
 
 if __name__ == "__main__":

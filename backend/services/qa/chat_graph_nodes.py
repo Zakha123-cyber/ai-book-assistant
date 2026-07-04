@@ -44,11 +44,11 @@ async def validate_book_node(
     book_id = state["book_id"]
     book = await BookRepository(session).get_by_id(book_id)
     if book is None:
-        logger.info("LangGraph node validate_book: book not found book_id=%s", book_id)
+        logger.info("LangGraph validate_book failed: book not found book_id=%s", book_id)
         raise ChatGraphBookNotFoundError("Book not found.")
 
-    logger.info(
-        "LangGraph node validate_book: book_id=%s title=%s question=%s",
+    logger.debug(
+        "LangGraph validate_book: book_id=%s title=%s question=%s",
         book_id,
         book.title,
         preview_text(state.get("normalized_question") or state.get("question", "")),
@@ -76,8 +76,8 @@ async def detect_identity_node(
             )
 
     if identity_route is None:
-        logger.info(
-            "LangGraph node detect_identity: no identity route book_id=%s question=%s",
+        logger.debug(
+            "LangGraph detect_identity: no identity route book_id=%s question=%s",
             state["book_id"],
             preview_text(question),
         )
@@ -87,14 +87,14 @@ async def detect_identity_node(
         system_profile = await SystemProfileRepository(session).get_default()
         if system_profile is None:
             logger.info(
-                "LangGraph node detect_identity: system profile missing book_id=%s",
+                "LangGraph detect_identity failed: system profile missing book_id=%s",
                 state["book_id"],
             )
             raise ChatGraphSystemProfileNotFoundError("System profile not configured.")
 
     identity_context = build_app_identity_context(system_profile, identity_route)
     logger.info(
-        "LangGraph node detect_identity: book_id=%s mode=%s context_chars=%s",
+        "LangGraph detect_identity: book_id=%s mode=%s context_chars=%s",
         state["book_id"],
         identity_route.mode.value,
         len(identity_context),
@@ -109,8 +109,8 @@ async def detect_identity_node(
 
 async def route_question_node(state: ChatGraphState) -> ChatGraphState:
     if state.get("identity_context"):
-        logger.info(
-            "LangGraph node route_question: skipped for identity book_id=%s",
+        logger.debug(
+            "LangGraph route_question skipped: identity route book_id=%s",
             state["book_id"],
         )
         return state
@@ -118,7 +118,7 @@ async def route_question_node(state: ChatGraphState) -> ChatGraphState:
     question = state.get("normalized_question") or state.get("question", "")
     question_route = route_question(question)
     logger.info(
-        "LangGraph node route_question: book_id=%s mode=%s chapter=%s question=%s",
+        "LangGraph route_question: book_id=%s mode=%s chapter=%s question=%s",
         state["book_id"],
         question_route.mode.value,
         question_route.chapter_number,
@@ -146,8 +146,8 @@ async def resolve_summary_context_node(
     session: AsyncSession,
 ) -> ChatGraphState:
     if state.get("identity_context"):
-        logger.info(
-            "LangGraph node resolve_summary_context: skipped for identity book_id=%s",
+        logger.debug(
+            "LangGraph resolve_summary_context skipped: identity route book_id=%s",
             state["book_id"],
         )
         return state
@@ -157,8 +157,8 @@ async def resolve_summary_context_node(
         QuestionMode.BOOK_SUMMARY,
         QuestionMode.CHAPTER_SUMMARY,
     }:
-        logger.info(
-            "LangGraph node resolve_summary_context: skipped book_id=%s",
+        logger.debug(
+            "LangGraph resolve_summary_context skipped: non-summary book_id=%s",
             state["book_id"],
         )
         return state
@@ -175,7 +175,7 @@ async def resolve_summary_context_node(
         )
 
     logger.info(
-        "LangGraph node resolve_summary_context: book_id=%s mode=%s "
+        "LangGraph resolve_summary_context: book_id=%s mode=%s "
         "context_chars=%s source_count=%s",
         state["book_id"],
         question_route.mode.value,
@@ -256,16 +256,16 @@ async def _get_chapter_summary_context(
 
 async def run_retrieval_qa_node(state: ChatGraphState) -> ChatGraphState:
     if state.get("identity_context") or state.get("summary_context"):
-        logger.info(
-            "LangGraph node run_retrieval_qa: skipped existing context book_id=%s",
+        logger.debug(
+            "LangGraph run_retrieval_qa skipped: existing context book_id=%s",
             state["book_id"],
         )
         return state
 
     question_route = state.get("question_route")
     if question_route is None or question_route.mode != QuestionMode.RETRIEVAL_QA:
-        logger.info(
-            "LangGraph node run_retrieval_qa: skipped book_id=%s mode=%s",
+        logger.debug(
+            "LangGraph run_retrieval_qa skipped: book_id=%s mode=%s",
             state["book_id"],
             question_route.mode.value if question_route else None,
         )
@@ -277,7 +277,7 @@ async def run_retrieval_qa_node(state: ChatGraphState) -> ChatGraphState:
         top_k=state["top_k"],
     )
     logger.info(
-        "LangGraph node run_retrieval_qa: book_id=%s source_count=%s "
+        "LangGraph run_retrieval_qa: book_id=%s source_count=%s "
         "answer_preview=%s",
         state["book_id"],
         len(result.sources),
@@ -296,8 +296,8 @@ async def generate_identity_or_summary_answer_node(
     state: ChatGraphState,
 ) -> ChatGraphState:
     if state.get("answer"):
-        logger.info(
-            "LangGraph node generate_identity_or_summary_answer: skipped "
+        logger.debug(
+            "LangGraph generate_identity_or_summary_answer skipped: "
             "existing answer book_id=%s",
             state["book_id"],
         )
@@ -305,8 +305,8 @@ async def generate_identity_or_summary_answer_node(
 
     context = state.get("identity_context") or state.get("summary_context")
     if not context:
-        logger.info(
-            "LangGraph node generate_identity_or_summary_answer: skipped no context "
+        logger.debug(
+            "LangGraph generate_identity_or_summary_answer skipped: no context "
             "book_id=%s",
             state["book_id"],
         )
@@ -326,7 +326,7 @@ async def generate_identity_or_summary_answer_node(
         sources = [] if _is_not_found_answer(answer) else state.get("sources", [])
 
     logger.info(
-        "LangGraph node generate_identity_or_summary_answer: book_id=%s "
+        "LangGraph generate_identity_or_summary_answer: book_id=%s "
         "mode=%s source_count=%s answer_preview=%s",
         state["book_id"],
         response_mode,
@@ -353,8 +353,8 @@ async def persist_chat_history_node(
 ) -> ChatGraphState:
     answer = state.get("answer")
     if not answer:
-        logger.info(
-            "LangGraph node persist_chat_history: skipped missing answer book_id=%s",
+        logger.debug(
+            "LangGraph persist_chat_history skipped: missing answer book_id=%s",
             state["book_id"],
         )
         return state
@@ -366,8 +366,8 @@ async def persist_chat_history_node(
             answer=answer,
         )
     )
-    logger.info(
-        "LangGraph node persist_chat_history: book_id=%s answer_preview=%s",
+    logger.debug(
+        "LangGraph persist_chat_history: book_id=%s answer_preview=%s",
         state["book_id"],
         preview_text(answer),
     )

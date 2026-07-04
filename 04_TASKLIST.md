@@ -109,6 +109,25 @@
 
 ---
 
+# Phase 7C --- LangChain LLM Chains
+
+- [ ] T048P Menambahkan dependency `langchain-core`.
+- [ ] T048Q Mendesain interface LangChain chain untuk QA.
+- [ ] T048R Membuat adapter Qwen custom agar kompatibel dengan LangChain Runnable.
+- [ ] T048S Membuat QA chain menggunakan LangChain prompt dan output parser.
+- [ ] T048T Menghubungkan `QwenQAService` ke QA chain tanpa mengubah caller.
+- [ ] T048U Menambahkan unit test untuk QA chain LangChain.
+- [ ] T048V Validasi manual endpoint `/chat` setelah QA memakai LangChain.
+- [ ] T048W Mendesain interface LangChain chain untuk summarization.
+- [ ] T048X Membuat chunk summary chain.
+- [ ] T048Y Membuat chapter summary chain.
+- [ ] T048Z Membuat book summary chain.
+- [ ] T048AA Menghubungkan summarizer Qwen ke LangChain summary chains tanpa mengubah caller.
+- [ ] T048AB Menambahkan unit test untuk summary chains LangChain.
+- [ ] T048AC Validasi manual upload, background summary indexing, dan endpoint summary setelah summarizer memakai LangChain.
+
+---
+
 # Phase 8 --- Frontend
 
 - [ ] T049 Halaman daftar buku.
